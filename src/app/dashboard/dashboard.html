@@ -1,0 +1,13 @@
+<h2>Top Heroes</h2>
+@if (heroes$ | async; as heroes) {
+  <div class="heroes-menu">
+    @for (hero of heroes; track hero.id) {
+    <a  routerLink="/detail/{{hero.id}}">
+      {{hero.name}}
+    </a>
+    }
+  </div>
+  } @else {
+    <p>Heroes are loading...</p>
+}
+<app-hero-search></app-hero-search>
