@@ -7,9 +7,6 @@ import {Hero} from '../hero';
 import { Observable } from 'rxjs';
 
 
-
-
-
 @Component({
   selector: 'app-heroes',
   imports: [
