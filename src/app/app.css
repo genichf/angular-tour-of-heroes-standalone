@@ -5,11 +5,16 @@ h1 {
 nav a {
   padding: 1rem;
   text-decoration: none;
+  margin-right: 10px;
   margin-top: 10px;
   display: inline-block;
   background-color: #e8e8e8;
   color: #3d3d3d;
   border-radius: 4px;
+}
+
+nav a:last-child {
+  margin-right: 0;
 }
 
 nav a:hover {
