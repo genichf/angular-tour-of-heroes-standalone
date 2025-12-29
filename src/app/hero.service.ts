@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 import { Observable, of } from 'rxjs';
@@ -7,44 +7,51 @@ import { catchError, map, tap } from 'rxjs/operators';
 import { Hero } from './hero';
 import { MessageService } from './message.service';
 
-
 @Injectable({ providedIn: 'root' })
 export class HeroService {
+  private http = inject(HttpClient);
+  private messageService = inject(MessageService);
 
   private heroesUrl = 'api/heroes';  // URL to web api
 
-  httpOptions = {
+  private httpOptions = {
     headers: new HttpHeaders({ 'Content-Type': 'application/json' })
   };
 
-  constructor(
-    private http: HttpClient,
-    private messageService: MessageService) { }
+  // 🟢 Глобальний стан: список героїв
+  private heroesSignal = signal<Hero[]>([]);
+  // 🔵 Публічний доступ до списку (тільки для читання)
+  readonly heroes = this.heroesSignal.asReadonly();
 
-  /** GET heroes from the server */
-  getHeroes(): Observable<Hero[]> {
-    return this.http.get<Hero[]>(this.heroesUrl);
-      // .pipe(
-      //   tap(_ => this.log('fetched heroes')),
-      //   catchError(this.handleError<Hero[]>('getHeroes', []))
-      // );
+  // 🟢 Новий сигнал для відстеження завантаження
+  isLoading = signal<boolean>(false);
+
+  /** GET: Отримати героїв і оновити сигнал */
+  getHeroes(): void {
+    this.isLoading.set(true); // Починаємо завантаження
+    this.http.get<Hero[]>(this.heroesUrl).pipe(
+      tap(_ => this.log('fetched heroes')),
+      catchError(this.handleError<Hero[]>('getHeroes', []))
+    ).subscribe(heroes => {
+      this.heroesSignal.set(heroes);
+      this.isLoading.set(false); // Завершили завантаження
+    });
   }
 
-  /** GET hero by id. Return `undefined` when id not found */
+  /** GET: Отримати героя за ID. Повертає `undefined`, якщо не знайдено */
   getHeroNo404<Data>(id: number): Observable<Hero> {
     const url = `${this.heroesUrl}/?id=${id}`;
-    return this.http.get<Hero[]>(url)
-      .pipe(
-        map(heroes => heroes[0]), // returns a {0|1} element array
-        tap(h => {
-          const outcome = h ? 'fetched' : 'did not find';
-          this.log(`${outcome} hero id=${id}`);
-        }),
-        catchError(this.handleError<Hero>(`getHero id=${id}`))
-      );
+    return this.http.get<Hero[]>(url).pipe(
+      map(heroes => heroes[0]),
+      tap(h => {
+        const outcome = h ? 'fetched' : 'did not find';
+        this.log(`${outcome} hero id=${id}`);
+      }),
+      catchError(this.handleError<Hero>(`getHero id=${id}`))
+    );
   }
 
-  /** GET hero by id. Will 404 if id not found */
+  /** GET: Отримати героя за ID */
   getHero(id: number): Observable<Hero> {
     const url = `${this.heroesUrl}/${id}`;
     return this.http.get<Hero>(url).pipe(
@@ -53,10 +60,9 @@ export class HeroService {
     );
   }
 
-  /* GET heroes whose name contains search term */
+  /** GET: Пошук героїв за назвою (залишаємо Observable для компонента пошуку) */
   searchHeroes(term: string): Observable<Hero[]> {
     if (!term.trim()) {
-      // if not search term, return empty hero array.
       return of([]);
     }
     return this.http.get<Hero[]>(`${this.heroesUrl}/?name=${term}`).pipe(
@@ -69,54 +75,53 @@ export class HeroService {
 
   //////// Save methods //////////
 
-  /** POST: add a new hero to the server */
-  addHero(hero: Hero): Observable<Hero> {
-    return this.http.post<Hero>(this.heroesUrl, hero, this.httpOptions).pipe(
+  /** POST: Додати героя та оновити сигнал */
+  addHero(hero: Hero): void {
+    this.http.post<Hero>(this.heroesUrl, hero, this.httpOptions).pipe(
       tap((newHero: Hero) => this.log(`added hero w/ id=${newHero.id}`)),
       catchError(this.handleError<Hero>('addHero'))
-    );
+    ).subscribe(newHero => {
+      // ВАЖЛИВО: Оновлюємо сигнал тільки ТУТ і один раз.
+      if (newHero && newHero.id) {
+        this.heroesSignal.update(heroes => [...heroes, newHero]);
+      }
+    });
   }
 
-  /** DELETE: delete the hero from the server */
-  deleteHero(id: number): Observable<Hero> {
+  /** DELETE: Видалити героя та оновити сигнал */
+  deleteHero(id: number): void {
     const url = `${this.heroesUrl}/${id}`;
-
-    return this.http.delete<Hero>(url, this.httpOptions).pipe(
+    this.http.delete<Hero>(url, this.httpOptions).pipe(
       tap(_ => this.log(`deleted hero id=${id}`)),
       catchError(this.handleError<Hero>('deleteHero'))
-    );
+    ).subscribe(() => {
+      // Оновлюємо сигнал локально, щоб не робити getHeroes() знову
+      this.heroesSignal.update(heroes => heroes.filter(h => h.id !== id));
+    });
   }
 
-  /** PUT: update the hero on the server */
+  /** PUT: Оновити героя на сервері та в сигналі */
   updateHero(hero: Hero): Observable<any> {
     return this.http.put(this.heroesUrl, hero, this.httpOptions).pipe(
-      tap(_ => this.log(`updated hero id=${hero.id}`)),
+      tap(_ => {
+        this.log(`updated hero id=${hero.id}`);
+        // Оновлюємо локальний стан сигналу
+        this.heroesSignal.update(heroes => 
+          heroes.map(h => h.id === hero.id ? hero : h)
+        );
+      }),
       catchError(this.handleError<any>('updateHero'))
     );
   }
 
-  /**
-   * Handle Http operation that failed.
-   * Let the app continue.
-   *
-   * @param operation - name of the operation that failed
-   * @param result - optional value to return as the observable result
-   */
   private handleError<T>(operation = 'operation', result?: T) {
     return (error: any): Observable<T> => {
-
-      // TODO: send the error to remote logging infrastructure
-      console.error(error); // log to console instead
-
-      // TODO: better job of transforming error for user consumption
+      console.error(error);
       this.log(`${operation} failed: ${error.message}`);
-
-      // Let the app keep running by returning an empty result.
       return of(result as T);
     };
   }
 
-  /** Log a HeroService message with the MessageService */
   private log(message: string) {
     this.messageService.add(`HeroService: ${message}`);
   }

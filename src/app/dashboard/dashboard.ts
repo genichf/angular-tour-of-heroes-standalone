@@ -1,15 +1,12 @@
-import { Component, OnInit } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
+import { Component, OnInit, inject, computed } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Hero } from '../hero';
 import { HeroService } from '../hero.service';
-import { map, Observable } from 'rxjs';
 import { HeroSearch } from "../hero-search/hero-search";
 
 @Component({
   selector: 'app-dashboard',
   imports: [
-    AsyncPipe,
+    // AsyncPipe більше не потрібен
     RouterLink,
     HeroSearch,
   ],
@@ -17,20 +14,16 @@ import { HeroSearch } from "../hero-search/hero-search";
   styleUrl: './dashboard.css',
 })
 export class Dashboard implements OnInit {
-// 🎯 Зміна: Зберігаємо Observable, а не масив
-  heroes$!: Observable<Hero[]>;
+  private heroService = inject(HeroService);
 
-  constructor(private heroService: HeroService) { }
+  // 🧠 Створюємо обчислювальний сигнал. 
+  // Він автоматично стежить за this.heroService.heroes() 
+  // і оновлюється сам, коли змінюється основний список.
+  topHeroes = computed(() => this.heroService.heroes().slice(1, 5));
 
   ngOnInit(): void {
-    this.getHeroes();
-  }
-
-  getHeroes(): void {
-// 🎯 Зміна: Присвоюємо heroes$ Observable, який модифікується оператором map
-    this.heroes$ = this.heroService.getHeroes().pipe(
-      // Використовуємо map для обробки даних у потоці, а не в .subscribe()
-      map(heroes => heroes.slice(1, 5)) 
-    );
+    // Завантажуємо дані. Навіть якщо ми на Dashboard, 
+    // сервіс оновить свій сигнал, і наш topHeroes() зреагує.
+    this.heroService.getHeroes();
   }
 }

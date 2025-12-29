@@ -1,16 +1,20 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class MessageService {
-  messages: string[] = [];
+  // 🟢 Створюємо сигнал як приватний стан (масив рядків)
+  private messagesSignal = signal<string[]>([]);
+
+  // 🔵 Публічний доступ тільки для читання
+  readonly messages = this.messagesSignal.asReadonly();
 
   add(message: string) {
-    this.messages.push(message);
+    // Використовуємо .update(), щоб додати нове повідомлення в кінець
+    this.messagesSignal.update(m => [...m, message]);
   }
 
   clear() {
-    this.messages = [];
+    // Повністю очищуємо масив
+    this.messagesSignal.set([]);
   }
 }

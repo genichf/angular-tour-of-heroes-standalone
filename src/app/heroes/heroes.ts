@@ -1,54 +1,47 @@
-import { Component, signal, OnInit } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
+import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HeroService } from '../hero.service';
-
-import {Hero} from '../hero';
-import { Observable } from 'rxjs';
-
+import { Hero } from '../hero';
 
 @Component({
   selector: 'app-heroes',
+  standalone: true,
   imports: [
     RouterLink,
-    AsyncPipe,
+    // AsyncPipe більше не потрібен, видаляємо його
   ],
   templateUrl: './heroes.html',
   styleUrl: './heroes.css',
 })
 export class Heroes implements OnInit {
-// Використовуємо Observable, щоб працювати з AsyncPipe
-  heroes$!: Observable<Hero[]>;
+  // 1. Використовуємо inject — це сучасний стиль Angular
+  private heroService = inject(HeroService);
 
-  constructor(private heroService: HeroService) { }
+  // 2. Просто посилаємось на сигнал із сервісу
+  // Тепер це "живий" список, який сам знає, коли оновитися
+  heroes = this.heroService.heroes;
+  // 🔵 Прокидаємо сигнал завантаження в шаблон
+  isLoading = this.heroService.isLoading;
 
   ngOnInit(): void {
-    this.getHeroes();
-}
-
-  getHeroes(): void {
-    // this.heroService.getHeroes()
-    //   .subscribe(heroes => this.heroes = heroes);
-    this.heroes$ = this.heroService.getHeroes();
+    // Завантажуємо дані при старті. Сигнал у сервісі заповниться, 
+    // і цей компонент автоматично "прокинеться".
+    this.heroService.getHeroes();
   }
 
   add(name: string): void {
     name = name.trim();
-    if (!name) { return; }
-    this.heroService.addHero({ name } as Hero)
-      .subscribe(() => {
-        this.getHeroes();
-      });
+    if (!name) return;
+
+    // Тільки один виклик! 
+    // Не додавайте .subscribe() тут, бо він вже є в сервісі.
+    this.heroService.addHero({ name } as Hero);
   }
 
   delete(hero: Hero): void {
-    // this.heroes = this.heroes.filter(h => h !== hero);
-    // this.heroService.deleteHero(hero.id).subscribe();
-    this.heroService.deleteHero(hero.id)
-      .subscribe(() => {
-        // Після успішного видалення, повторно завантажуємо список
-        this.getHeroes();
-      });
+    // Кажемо сервісу видалити героя.
+    // Як тільки сервер відповість, сервіс оновить сигнал, 
+    // і герой зникне з екрана автоматично.
+    this.heroService.deleteHero(hero.id);
   }
 }
-

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { MessageService } from '../message.service';
 
 @Component({
@@ -8,7 +8,9 @@ import { MessageService } from '../message.service';
   styleUrl: './messages.css',
 })
 export class Messages {
-  protected readonly title = 'Sample of Message';
+  // ⚡️ Тепер title — це сигнал. 
+  // Навіть якщо він readonly, ми звертаємося до нього як до функції.
+  protected readonly title = signal('Sample of Message');
 
-  constructor(public messageService: MessageService) {}
+  public messageService = inject(MessageService);
 }

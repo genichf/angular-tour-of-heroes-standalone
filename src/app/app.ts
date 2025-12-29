@@ -9,5 +9,5 @@ import { Messages } from "./messages/messages";
   styleUrl: './app.css'
 })
 export class App {
-  protected readonly title = 'Tour of Heroes';
+  title = signal('Tour of Heroes');
 }

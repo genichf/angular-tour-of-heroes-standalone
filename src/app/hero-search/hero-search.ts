@@ -1,56 +1,38 @@
-import { Component, OnInit } from '@angular/core';
-import { AsyncPipe } from '@angular/common';
+import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { Observable, of, Subject } from 'rxjs';
-
-import {
-   debounceTime, distinctUntilChanged, startWith, switchMap
- } from 'rxjs';
-
-import { Hero } from '../hero';
+import { Subject, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+import { toSignal } from '@angular/core/rxjs-interop'; // 🪄 Магія перетворення
 import { HeroService } from '../hero.service';
 
 @Component({
   selector: 'app-hero-search',
   imports: [
-    AsyncPipe,
+    // AsyncPipe більше не потрібен
     RouterLink,
   ],
   templateUrl: './hero-search.html',
   styleUrl: './hero-search.css',
 })
-export class HeroSearch implements OnInit {
-  heroes$!: Observable<Hero[]>;
+export class HeroSearch {
+  private heroService = inject(HeroService);
   private searchTerms = new Subject<string>();
 
-  constructor(private heroService: HeroService) {}
+  // ⚡️ Перетворюємо Observable у Signal
+  // toSignal автоматично підписується на потік і відписується, коли компонент знищується
+  heroes = toSignal(
+    this.searchTerms.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap((term: string) => {
+        if (!term.trim()) return of([]);
+        return this.heroService.searchHeroes(term);
+      })
+    ),
+    { initialValue: [] } // Замінює startWith(''), дає початковий стан сигналу
+  );
 
-  // Push a search term into the observable stream.
   search(term: string): void {
     this.searchTerms.next(term);
-  }
-
-  ngOnInit(): void {
-this.heroes$ = this.searchTerms.pipe(
-      // 🎯 КРОК 1: startWith('') - Видає порожній рядок негайно на старті. 
-      // Це гарантує, що heroes$ має початкове значення, і AsyncPipe не буде null.
-      startWith(''), 
-
-      // КРОК 2: Чекаємо 300 мс (для debounce)
-      debounceTime(300), 
-
-      // КРОК 3: Ігноруйте, якщо термін не змінився
-      distinctUntilChanged(), 
-
-      // КРОК 4: switchMap - Перемикання на запит
-      switchMap((term: string) => {
-        if (!term.trim()) {
-          // Якщо термін порожній (включаючи початковий '')
-          return of([]); 
-        }
-        // Інакше, виконуйте пошук із затримкою
-        return this.heroService.searchHeroes(term);
-      }),
-    );
   }
 }

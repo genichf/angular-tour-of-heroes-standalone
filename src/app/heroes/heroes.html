@@ -3,26 +3,24 @@
 <div>
   <label for="new-hero">Hero name: </label>
   <input id="new-hero" #heroName />
-
-  <!-- (click) passes input value to add() and then clears the input -->
-  <button type="button" class="add-button" (click)="add(heroName.value); heroName.value=''">
+  <button class="add-button" (click)="add(heroName.value); heroName.value=''">
     Add hero
   </button>
 </div>
 
-@if (heroes$ | async; as heroes) {
-  <ul class="heroes">
-    @for (hero of heroes; track hero.id) {
-    <li>
-      <a routerLink="/detail/{{hero.id}}">
-        <span class="badge">{{hero.id}}</span> {{hero.name}}
-      </a>
-      <button type="button" class="delete" title="delete hero"
-        (click)="delete(hero)">x</button>
-    </li>
+<ul class="heroes">
+  @if (isLoading()) {
+    <li>Heroes are loading...</li>
+  } @else {
+    @for (hero of heroes(); track hero.id) {
+      <li>
+        <a [routerLink]="['/detail', hero.id]">
+          <span class="badge">{{hero.id}}</span> {{hero.name}}
+        </a>
+        <button class="delete" (click)="delete(hero)">x</button>
+      </li>
+    } @empty {
+      <li>Список героїв порожній. Додайте першого героя!</li>
     }
-  </ul>
-}
-@else {
-    <p>Heroes are loading...</p>
-}
+  }
+</ul>
